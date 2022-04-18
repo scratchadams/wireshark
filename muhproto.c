@@ -255,6 +255,11 @@ dissect_muhproto(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, void *
         muhh->uh_stream = muhprotod->stream;
     }
     tap_queue_packet(muh_tap, pinfo, muhh);
+    tap_queue_packet(muh_follow_tap, pinfo, tvb);
+
+    if(have_tap_listener(muh_follow_tap)) {
+        printf("yes we have tap listener\n");
+    }
 
     return tvb_captured_length(tvb);
 }
@@ -278,7 +283,18 @@ muh_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, 
 static void muh_init(void) {
     muh_stream_count = 0;
 }
+/*
+static gboolean capture_muh(const guchar *pd _U_, int offset _U_, int len _U_, 
+    capture_packet_info_t *cpinfo, const union wtap_pseudo_header *pseudo_header _U_) {
+    
+    if(!BYTES_ARE_IN_FRAME(offset, len, 4))
+        return FALSE;
 
+    capture_dissector_increment_count(cpinfo, proto_muhproto);
+
+    return TRUE;
+}
+*/
 void
 proto_register_muhproto(void) {
 
@@ -332,14 +348,31 @@ proto_register_muhproto(void) {
      register_init_routine(muh_init);
 }
 
+gboolean capture_muhproto(const guchar *pd _U_, int offset _U_, int len _U_, capture_packet_info_t *cpinfo,
+    const union wtap_pseudo_header *pseudo_header _U_) {
+
+    capture_dissector_increment_count(cpinfo, proto_muhproto);
+    return TRUE;
+}
+
 void
 proto_reg_handoff_muhproto(void) {
-    //static dissector_handle_t muhproto_handle;
+    capture_dissector_handle_t muh_cap_handle;
+
+    printf("proto_reg_handoff_muhproto() triggered\n");
 
     //muhproto_handle = create_dissector_handle(dissect_muhproto, proto_muhproto);
     dissector_add_uint("ip.proto", ICMP_PROTO, muh_handle);
 
+    //muh_cap_handle = create_capture_dissector_handle(capture_muh, proto_muhproto);
+    //capture_dissector_add_uint("ip.proto", ICMP_PROTO, muh_cap_handle);
+
     muh_tap = register_tap("muhproto");
     muh_follow_tap = register_tap("muhproto_follow");
     exported_pdu_tap = find_tap_id(EXPORT_PDU_TAP_NAME_LAYER_3);
+
+    muh_cap_handle = create_capture_dissector_handle(capture_muhproto, proto_muhproto);
+    capture_dissector_add_uint("ip.proto", ICMP_PROTO, muh_cap_handle);
+    //register_capture_dissector("ip.proto", ICMP_PROTO, muh_cap_handle, proto_muhproto);
+
 }
