@@ -14,7 +14,6 @@
 static int proto_muhproto = -1;
 static dissector_handle_t muh_handle;
 
-static int muh_tap = -1;
 static int muh_follow_tap = -1;
 static int exported_pdu_tap = -1;
 
@@ -35,9 +34,7 @@ static guint muh_stream_count = 0;
 };*/
 
 typedef struct _e_muhhdr {
-    guint8 uh_type;
     guint8 uh_data1;
-    guint16 uh_chksum;
     guint8 uh_data2;
     guint8 uh_data3;
     guint32 uh_stream;
@@ -67,11 +64,13 @@ struct muhproto_analysis {
     nstime_t ts_prev;
 };
 
-
+/*
 static gboolean muh_filter_valid(packet_info *pinfo) {
     return proto_is_frame_protocol(pinfo->layers, "muhproto");
 }
+*/
 
+/*
 static gchar* muh_build_filter(packet_info *pinfo) {
     if(pinfo->net_src.type == AT_IPv4 && pinfo->net_dst.type == AT_IPv4) {
         return ws_strdup_printf("(ip.addr eq %s and ip.addr eq %s)",
@@ -81,6 +80,7 @@ static gchar* muh_build_filter(packet_info *pinfo) {
 
    return NULL;
 }
+*/
 
 static struct muhproto_analysis *
 init_muhproto_conversation_data(packet_info *pinfo) {
@@ -178,6 +178,7 @@ static gchar *muhproto_follow_address_filter(address *src_addr, address *dst_add
                      ip_version, src_addr_str, src_port);
 }
 
+/*
 static const char* muh_host_get_filter_type(hostlist_talker_t* host, conv_filter_type_e filter) {
     printf("muh_host_get_filter_type() triggered\n");
 
@@ -186,10 +187,11 @@ static const char* muh_host_get_filter_type(hostlist_talker_t* host, conv_filter
 
     return CONV_FILTER_INVALID;
 }
+*/
 
-static hostlist_dissector_info_t muh_host_dissector_info = {&muh_host_get_filter_type};
+//static hostlist_dissector_info_t muh_host_dissector_info = {&muh_host_get_filter_type};
 
-static tap_packet_status
+/*static tap_packet_status
 muh_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip) {
 
     printf("muh_hostlist_packet() triggered\n");
@@ -204,7 +206,9 @@ muh_hostlist_packet(void *pit, packet_info *pinfo, epan_dissect_t *edt _U_, cons
 
     return TAP_PACKET_REDRAW;
 }
+*/
 
+/*
 static const char* muh_conv_get_filter_type(conv_item_t* conv, conv_filter_type_e filter) {
     printf("muh_conv_get_filter_type() triggered\n");
 
@@ -213,8 +217,8 @@ static const char* muh_conv_get_filter_type(conv_item_t* conv, conv_filter_type_
 
     return CONV_FILTER_INVALID;
 }
-
-static ct_dissector_info_t muh_ct_dissector_info = {&muh_conv_get_filter_type};
+*/
+//static ct_dissector_info_t muh_ct_dissector_info = {&muh_conv_get_filter_type};
 
 static int
 dissect_muhproto(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, void *data _U_) {
@@ -254,7 +258,7 @@ dissect_muhproto(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, void *
         printf("added muhproto stream item\n");
         muhh->uh_stream = muhprotod->stream;
     }
-    tap_queue_packet(muh_tap, pinfo, muhh);
+    
     tap_queue_packet(muh_follow_tap, pinfo, tvb);
 
     if(have_tap_listener(muh_follow_tap)) {
@@ -264,7 +268,7 @@ dissect_muhproto(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree _U_, void *
     return tvb_captured_length(tvb);
 }
 
-
+/*
 static tap_packet_status
 muh_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, const void *vip) {
     conv_hash_t *hash = (conv_hash_t*) pct;
@@ -279,6 +283,7 @@ muh_conversation_packet(void *pct, packet_info *pinfo, epan_dissect_t *edt _U_, 
 
     return TAP_PACKET_REDRAW;
 }
+*/
 
 static void muh_init(void) {
     muh_stream_count = 0;
@@ -338,10 +343,10 @@ proto_register_muhproto(void) {
     proto_register_subtree_array(ett, array_length(ett));
     
     muh_handle = register_dissector("muhproto", dissect_muhproto, proto_muhproto);
-    register_capture_dissector_table("muhproto", "MUHPROTO");
+    //register_capture_dissector_table("muhproto", "MUHPROTO");
 
-    register_conversation_table(proto_muhproto, FALSE, muh_conversation_packet, muh_hostlist_packet);
-    register_conversation_filter("muhproto", "MUHPROTO", muh_filter_valid, muh_build_filter);
+    //register_conversation_table(proto_muhproto, FALSE, muh_conversation_packet, muh_hostlist_packet);
+    //register_conversation_filter("muhproto", "MUHPROTO", muh_filter_valid, muh_build_filter);
     register_follow_stream(proto_muhproto, "muhproto_follow", muhproto_follow_conv_filter,
         muhproto_follow_index_filter, muhproto_follow_address_filter, udp_port_to_display, follow_tvb_tap_listener);
 
@@ -360,19 +365,13 @@ proto_reg_handoff_muhproto(void) {
     capture_dissector_handle_t muh_cap_handle;
 
     printf("proto_reg_handoff_muhproto() triggered\n");
-
-    //muhproto_handle = create_dissector_handle(dissect_muhproto, proto_muhproto);
+    
     dissector_add_uint("ip.proto", ICMP_PROTO, muh_handle);
 
-    //muh_cap_handle = create_capture_dissector_handle(capture_muh, proto_muhproto);
-    //capture_dissector_add_uint("ip.proto", ICMP_PROTO, muh_cap_handle);
-
-    muh_tap = register_tap("muhproto");
     muh_follow_tap = register_tap("muhproto_follow");
     exported_pdu_tap = find_tap_id(EXPORT_PDU_TAP_NAME_LAYER_3);
 
     muh_cap_handle = create_capture_dissector_handle(capture_muhproto, proto_muhproto);
     capture_dissector_add_uint("ip.proto", ICMP_PROTO, muh_cap_handle);
-    //register_capture_dissector("ip.proto", ICMP_PROTO, muh_cap_handle, proto_muhproto);
 
 }
